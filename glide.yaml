@@ -1,0 +1,4 @@
+package: github.com/rcorre/chupacabra
+import:
+- package: github.com/jroimartin/gocui
+  version: 0.3.x
