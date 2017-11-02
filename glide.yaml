@@ -2,3 +2,5 @@ package: github.com/rcorre/chupacabra
 import:
 - package: github.com/jroimartin/gocui
   version: master
+- package: k8s.io/client-go
+  version: ~5.0.1
