@@ -16,14 +16,16 @@ var (
 func main() {
 	resource = "pods"
 	namespace = "default"
-	g := gocui.NewGui()
-	if err := g.Init(); err != nil {
+	g, err := gocui.NewGui(gocui.OutputNormal)
+	if err != nil {
 		log.Panicln(err)
 	}
 	defer g.Close()
 
 	g.InputEsc = true
-	g.SetLayout(layout)
+	g.SelBgColor = gocui.ColorWhite
+	g.SelFgColor = gocui.ColorBlack
+	g.SetManagerFunc(layout)
 
 	if err := g.SetKeybinding("", gocui.KeyCtrlC, gocui.ModNone, quit); err != nil {
 		log.Panicln(err)
@@ -113,7 +115,7 @@ func openNamespaceSelector(g *gocui.Gui, v *gocui.View) error {
 		fmt.Fprintln(v, "One")
 		fmt.Fprintln(v, "Two")
 		fmt.Fprintln(v, "Three")
-		if err = g.SetCurrentView(v.Name()); err != nil {
+		if _, err = g.SetCurrentView(v.Name()); err != nil {
 			return err
 		}
 	}
@@ -124,7 +126,8 @@ func closeView(g *gocui.Gui, v *gocui.View) error {
 	if err := g.DeleteView(v.Name()); err != nil {
 		return err
 	}
-	return g.SetCurrentView("main")
+	_, err := g.SetCurrentView("main")
+	return err
 }
 
 func setNamespace(g *gocui.Gui, v *gocui.View) error {
