@@ -2,52 +2,66 @@ package main
 
 import (
 	"encoding/json"
-	"flag"
 	"time"
 
-	v1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/runtime/serializer"
-	"k8s.io/client-go/kubernetes/scheme"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 )
 
 type Kube interface {
+	Resources() []string
 	Get(kind, namespace string) (map[string]interface{}, error)
 }
 
 type kube struct {
-	rest *rest.RESTClient
+	clients map[string]rest.Interface
 }
 
-func NewKube(configPath string) Kube {
-	flag.Parse()
-
-	// use the current context in kubeconfig
+func NewKube(configPath string) (Kube, error) {
 	config, err := clientcmd.BuildConfigFromFlags("", configPath)
 	if err != nil {
-		panic(err.Error())
+		return nil, err
 	}
 
-	config.NegotiatedSerializer = serializer.DirectCodecFactory{
-		CodecFactory: scheme.Codecs,
-	}
-
-	config.GroupVersion = &v1.SchemeGroupVersion
-	config.APIPath = "/api"
-	config.NegotiatedSerializer = serializer.DirectCodecFactory{CodecFactory: scheme.Codecs}
-	if config.UserAgent == "" {
-		config.UserAgent = rest.DefaultKubernetesUserAgent()
-	}
-	client, err := rest.RESTClientFor(config)
+	clientset, err := kubernetes.NewForConfig(config)
 	if err != nil {
-		panic(err.Error())
+		return nil, err
 	}
-	return &kube{client}
+
+	clients := map[string]rest.Interface{
+		"componentstatuses":      clientset.CoreV1().RESTClient(),
+		"configmaps":             clientset.CoreV1().RESTClient(),
+		"endpoints":              clientset.CoreV1().RESTClient(),
+		"events":                 clientset.CoreV1().RESTClient(),
+		"limitranges":            clientset.CoreV1().RESTClient(),
+		"namespaces":             clientset.CoreV1().RESTClient(),
+		"nodes":                  clientset.CoreV1().RESTClient(),
+		"persistentvolumes":      clientset.CoreV1().RESTClient(),
+		"persistentvolumeclaims": clientset.CoreV1().RESTClient(),
+		"pods":                   clientset.CoreV1().RESTClient(),
+		"podtemplates":           clientset.CoreV1().RESTClient(),
+		"replicationcontrollers": clientset.CoreV1().RESTClient(),
+		"resourcequotas":         clientset.CoreV1().RESTClient(),
+		"secrets":                clientset.CoreV1().RESTClient(),
+		"services":               clientset.CoreV1().RESTClient(),
+		"serviceaccounts":        clientset.CoreV1().RESTClient(),
+	}
+	return &kube{clients}, nil
+}
+
+func (k *kube) Resources() []string {
+	keys := make([]string, len(k.clients))
+	i := 0
+	for name := range k.clients {
+		keys[i] = name
+		i++
+	}
+	return keys
 }
 
 func (k *kube) Get(kind, namespace string) (map[string]interface{}, error) {
-	req := k.rest.Verb("GET").
+	req := k.clients[kind].Verb("GET").
 		Resource(kind).
 		Namespace(namespace).
 		Timeout(10 * time.Second)

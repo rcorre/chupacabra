@@ -13,7 +13,10 @@ func init() {
 
 func main() {
 	conf := NewConfig()
-	kube := NewKube(conf.KubeConfigPath)
+	kube, err := NewKube(conf.KubeConfigPath)
+	if err != nil {
+		log.Panicln(err)
+	}
 
 	g, err := gocui.NewGui(gocui.OutputNormal)
 	if err != nil {

@@ -24,6 +24,8 @@ func NewConfig() *Config {
 		kubeconfig = flag.String("kubeconfig", "", "absolute path to the kubeconfig file")
 	}
 
+	flag.Parse()
+
 	return &Config{
 		KubeConfigPath: *kubeconfig,
 	}
