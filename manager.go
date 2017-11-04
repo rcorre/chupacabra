@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"log"
 
@@ -41,6 +42,12 @@ func (m *manager) Layout(g *gocui.Gui) error {
 		v.Highlight = true
 		g.SetCurrentView("main")
 	}
+	if _, err := g.SetView("detail", maxX/2, 2, maxX, maxY); err != nil {
+		if err != gocui.ErrUnknownView {
+			return err
+		}
+	}
+
 	return nil
 }
 
@@ -109,7 +116,7 @@ func (m *manager) scrollDown(g *gocui.Gui, v *gocui.View) error {
 	if curY < maxY {
 		v.MoveCursor(0, 1, false)
 	}
-	return nil
+	return m.showDetails(g, v)
 }
 
 func (m *manager) scrollUp(g *gocui.Gui, v *gocui.View) error {
@@ -117,7 +124,7 @@ func (m *manager) scrollUp(g *gocui.Gui, v *gocui.View) error {
 	if curY > 0 {
 		v.MoveCursor(0, -1, false)
 	}
-	return nil
+	return m.showDetails(g, v)
 }
 
 func (m *manager) openNamespaceSelector(g *gocui.Gui, v *gocui.View) error {
@@ -185,16 +192,21 @@ func (m *manager) setNamespace(g *gocui.Gui, v *gocui.View) error {
 		statusView.Clear()
 		fmt.Fprintf(statusView, "%s in %s", m.resource, m.namespace)
 
+		if err = m.loadResources(); err != nil {
+			return err
+		}
+
 		mainView, err := g.View("main")
 		if err != nil {
 			return err
 		}
+
 		mainView.Clear()
 		for k := range m.data {
 			fmt.Fprintln(mainView, k)
 		}
 
-		return m.loadResources()
+		return nil
 	})
 	return m.closeView(g, v)
 }
@@ -208,6 +220,10 @@ func (m *manager) setResource(g *gocui.Gui, v *gocui.View) error {
 
 	g.Update(func(g *gocui.Gui) error {
 		m.resource = resource
+		if err = m.loadResources(); err != nil {
+			return err
+		}
+
 		statusView, err := g.View("status")
 		if err != nil {
 			return err
@@ -219,12 +235,44 @@ func (m *manager) setResource(g *gocui.Gui, v *gocui.View) error {
 		if err != nil {
 			return err
 		}
+
 		mainView.Clear()
 		for k := range m.data {
 			fmt.Fprintln(mainView, k)
 		}
+		mainView.SetCursor(0, 0)
 
-		return m.loadResources()
+		return nil
 	})
 	return m.closeView(g, v)
+}
+
+func (m *manager) showDetails(g *gocui.Gui, v *gocui.View) error {
+	if v.Name() != "main" {
+		return nil
+	}
+	_, y := v.Cursor()
+	name, err := v.Line(y)
+	if err != nil {
+		return err
+	}
+
+	obj, ok := m.data[name]
+	if !ok {
+		return fmt.Errorf("Object %q not found in %+v", name, m.data)
+	}
+
+	pretty, err := json.MarshalIndent(obj, "", "    ")
+	if err != nil {
+		return err
+	}
+
+	detailView, err := g.View("detail")
+	if err != nil {
+		return err
+	}
+
+	detailView.Clear()
+	fmt.Fprintf(detailView, "%s", pretty)
+	return nil
 }
