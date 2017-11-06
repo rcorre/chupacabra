@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 	"log"
 
@@ -9,20 +8,19 @@ import (
 )
 
 type manager struct {
-	data      map[string]interface{}
+	data      []Object
 	resource  string
 	namespace string
 	kube      Kube
 }
 
+// NewManager returns a new instance of the main gui manager
 func NewManager(gui *gocui.Gui, kube Kube) gocui.Manager {
 	m := &manager{
 		kube:      kube,
 		resource:  "pods",
 		namespace: "default",
 	}
-
-	m.loadResources()
 
 	return m
 }
@@ -139,8 +137,8 @@ func (m *manager) openNamespaceSelector(g *gocui.Gui, v *gocui.View) error {
 			return err
 		}
 
-		for k := range namespaces {
-			fmt.Fprintln(v, k)
+		for _, obj := range namespaces {
+			fmt.Fprintln(v, obj.Name)
 		}
 
 		if _, err = g.SetCurrentView(v.Name()); err != nil {
@@ -196,15 +194,7 @@ func (m *manager) setNamespace(g *gocui.Gui, v *gocui.View) error {
 			return err
 		}
 
-		mainView, err := g.View("main")
-		if err != nil {
-			return err
-		}
-
-		mainView.Clear()
-		for k := range m.data {
-			fmt.Fprintln(mainView, k)
-		}
+		m.showList(g)
 
 		return nil
 	})
@@ -231,20 +221,26 @@ func (m *manager) setResource(g *gocui.Gui, v *gocui.View) error {
 		statusView.Clear()
 		fmt.Fprintf(statusView, "%s in %s", m.resource, m.namespace)
 
-		mainView, err := g.View("main")
-		if err != nil {
-			return err
-		}
-
-		mainView.Clear()
-		for k := range m.data {
-			fmt.Fprintln(mainView, k)
-		}
-		mainView.SetCursor(0, 0)
-
-		return nil
+		return m.showList(g)
 	})
 	return m.closeView(g, v)
+}
+
+func (m *manager) showList(g *gocui.Gui) error {
+	mainView, err := g.View("main")
+	if err != nil {
+		return err
+	}
+
+	mainView.Clear()
+	for _, obj := range m.data {
+		fmt.Fprintln(mainView, obj.Name)
+	}
+	if err = mainView.SetCursor(0, 0); err != nil {
+		return err
+	}
+
+	return m.showDetails(g, mainView)
 }
 
 func (m *manager) showDetails(g *gocui.Gui, v *gocui.View) error {
@@ -252,20 +248,11 @@ func (m *manager) showDetails(g *gocui.Gui, v *gocui.View) error {
 		return nil
 	}
 	_, y := v.Cursor()
-	name, err := v.Line(y)
-	if err != nil {
-		return err
+	if y >= len(m.data) {
+		return nil
 	}
 
-	obj, ok := m.data[name]
-	if !ok {
-		return fmt.Errorf("Object %q not found in %+v", name, m.data)
-	}
-
-	pretty, err := json.MarshalIndent(obj, "", "    ")
-	if err != nil {
-		return err
-	}
+	obj := m.data[y]
 
 	detailView, err := g.View("detail")
 	if err != nil {
@@ -273,6 +260,6 @@ func (m *manager) showDetails(g *gocui.Gui, v *gocui.View) error {
 	}
 
 	detailView.Clear()
-	fmt.Fprintf(detailView, "%s", pretty)
+	fmt.Fprintf(detailView, "%s", obj)
 	return nil
 }

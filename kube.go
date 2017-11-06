@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/json"
 	"time"
 
 	"k8s.io/client-go/kubernetes"
@@ -11,7 +10,7 @@ import (
 
 type Kube interface {
 	Resources() []string
-	Get(kind, namespace string) (map[string]interface{}, error)
+	Get(kind, namespace string) ([]Object, error)
 }
 
 type kube struct {
@@ -60,28 +59,15 @@ func (k *kube) Resources() []string {
 	return keys
 }
 
-func (k *kube) Get(kind, namespace string) (map[string]interface{}, error) {
+func (k *kube) Get(kind, namespace string) ([]Object, error) {
 	req := k.clients[kind].Verb("GET").
 		Resource(kind).
 		Namespace(namespace).
 		Timeout(10 * time.Second)
 
-	var data struct {
-		Items []map[string]interface{}
-	}
-
-	if raw, err := req.DoRaw(); err != nil {
-		return nil, err
-	} else if err := json.Unmarshal(raw, &data); err != nil {
+	raw, err := req.DoRaw()
+	if err != nil {
 		return nil, err
 	}
-
-	ret := make(map[string]interface{})
-
-	for _, item := range data.Items {
-		meta := item["metadata"].(map[string]interface{})
-		name := meta["name"].(string)
-		ret[name] = item
-	}
-	return ret, nil
+	return ParseObjectList(raw)
 }
