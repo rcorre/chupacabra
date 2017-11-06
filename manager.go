@@ -27,20 +27,20 @@ func NewManager(gui *gocui.Gui, kube Kube) gocui.Manager {
 
 func (m *manager) Layout(g *gocui.Gui) error {
 	maxX, maxY := g.Size()
-	if v, err := g.SetView("status", 0, 0, maxX/2, 2); err != nil {
+	if v, err := g.SetView("status", 0, 0, maxX/4, 2); err != nil {
 		if err != gocui.ErrUnknownView {
 			return err
 		}
 		fmt.Fprintf(v, "%s in %s", m.resource, m.namespace)
 	}
-	if v, err := g.SetView("main", 0, 2, maxX/2, maxY); err != nil {
+	if v, err := g.SetView("main", 0, 2, maxX/4, maxY); err != nil {
 		if err != gocui.ErrUnknownView {
 			return err
 		}
 		v.Highlight = true
 		g.SetCurrentView("main")
 	}
-	if _, err := g.SetView("detail", maxX/2, 2, maxX, maxY); err != nil {
+	if _, err := g.SetView("detail", maxX/4, 2, maxX, maxY); err != nil {
 		if err != gocui.ErrUnknownView {
 			return err
 		}
@@ -260,6 +260,6 @@ func (m *manager) showDetails(g *gocui.Gui, v *gocui.View) error {
 	}
 
 	detailView.Clear()
-	fmt.Fprintf(detailView, "%s", obj)
+	fmt.Fprintf(detailView, "%s", obj.Body)
 	return nil
 }
